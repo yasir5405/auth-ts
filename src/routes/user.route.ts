@@ -1,9 +1,13 @@
 import { Router } from "express";
 
-import { signupUser } from "../controllers/user.controller";
+import { signupUser, verifyEmail } from "../controllers/user.controller";
 
 const userRouter = Router();
 
+// @Route to signup users
 userRouter.post("/signup", signupUser);
-// TODO: Add password and confirm Password for signing up route
+
+// @Route to verify user's email
+userRouter.get("/verify", verifyEmail);
+
 export { userRouter };
