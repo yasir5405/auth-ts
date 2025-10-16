@@ -7,7 +7,7 @@ import {
   signupUser,
   verifyEmail,
 } from "../controllers/user.controller";
-import { signupLimiter } from "../middlewares/auth.middleware";
+import { loginLimiter, signupLimiter } from "../middlewares/auth.middleware";
 
 const userRouter = Router();
 
@@ -18,7 +18,7 @@ userRouter.post("/signup", signupLimiter, signupUser);
 userRouter.get("/verify", verifyEmail);
 
 // @Route to login user and return jwt token to the client
-userRouter.post("/signin", loginUser);
+userRouter.post("/signin", loginLimiter, loginUser);
 
 // @Route to request a password reset link to the registered email
 userRouter.post("/request-password-reset-link", sendResetPasswordLink);
