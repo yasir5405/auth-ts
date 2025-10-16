@@ -7,8 +7,12 @@ import {
   ITokenVerificationDoc,
   TokenVerificationModel,
 } from "../models/token-verification.model";
-import { sendEmail } from "../lib/email";
+import { sendEmail, sendPasswordResetEmail } from "../lib/email";
 import jsonwebtoken from "jsonwebtoken";
+import {
+  IPasswordResetTokenDoc,
+  passwordResetTokenModel,
+} from "../models/password-reset-token.model";
 
 export const signupUser = async (req: Request, res: Response) => {
   const parsedBody = signupSchema.safeParse(req.body);
@@ -235,6 +239,148 @@ export const loginUser = async (req: Request, res: Response) => {
       data: {
         user: safeUser,
         token: token,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error instanceof Error ? error.message : "Internal server error.",
+    });
+  }
+};
+
+export const sendResetPasswordLink = async (req: Request, res: Response) => {
+  const parsedBody = signupSchema.partial().safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid data format.",
+      error: parsedBody.error.issues.map((issue) => issue.message),
+    });
+  }
+
+  const { email } = parsedBody.data;
+
+  if (!email) {
+    return res.status(403).json({
+      success: false,
+      message: "Please provide an email to recieve password reset link.",
+    });
+  }
+
+  try {
+    const user: IUserDoc | null = await UserModel.findOne({ email });
+
+    if (!user) {
+      return res.status(403).json({
+        success: false,
+        message: "User not found with this email: " + email,
+      });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await passwordResetTokenModel.create({
+      token,
+      userId: user._id,
+      expiresAt,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Password reset link sent to your registered email.",
+    });
+
+    await sendPasswordResetEmail(email, token);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error instanceof Error ? error.message : "Internal server error.",
+    });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.status(403).json({
+      success: false,
+      message: "Missing or Invalid token.",
+    });
+  }
+
+  const partialSchema = signupSchema.partial();
+
+  const parsedBody = partialSchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid data format.",
+      error: parsedBody.error.issues.map((issue) => issue.message),
+    });
+  }
+
+  const { password } = parsedBody.data;
+
+  if (!password || password.length === 0 || password === "") {
+    return res.status(403).json({
+      success: false,
+      message: "New Password is required to reset your current password.",
+    });
+  }
+
+  try {
+    const storedToken: IPasswordResetTokenDoc | null =
+      await passwordResetTokenModel.findOne({ token });
+
+    if (!storedToken) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid token. Unauthorized.",
+      });
+    }
+
+    const user: IUserDoc | null = await UserModel.findById(storedToken.userId);
+
+    if (!user) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid token. Unauthorized.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser: IUserDoc | null = await UserModel.findByIdAndUpdate(
+      user._id,
+      {
+        password: hashedPassword,
+      },
+      { new: true }
+    );
+
+    if (!newUser) {
+      return res.status(500).json({
+        success: false,
+        message: "Error while updating password. Please try again.",
+      });
+    }
+
+    const { password: _, ...safeUser } = newUser.toObject();
+
+    await passwordResetTokenModel.findByIdAndDelete(storedToken._id);
+
+    res.status(201).json({
+      success: true,
+      message: "Password reset successfull.",
+      data: {
+        user: safeUser,
       },
     });
   } catch (error) {
