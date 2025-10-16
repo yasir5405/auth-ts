@@ -23,10 +23,14 @@ const userSchema = new Schema<IUser>(
     username: {
       type: String,
       required: true,
+      unique: true,
+      index: true,
     },
     email: {
       type: String,
       required: true,
+      unique: true,
+      index: true,
     },
     image: {
       type: String,
@@ -47,6 +51,9 @@ const userSchema = new Schema<IUser>(
   },
   { timestamps: true }
 );
+
+userSchema.index({ email: 1 }, { unique: true, background: true });
+userSchema.index({ username: 1 }, { unique: true, background: true });
 
 const UserModel = models?.User || mongoose.model<IUser>("User", userSchema);
 

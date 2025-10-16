@@ -3,6 +3,7 @@ import path from "path";
 import express from "express";
 import { userRouter } from "./routes/user.route";
 import { connectDB } from "./lib/mongoose";
+import helmet from "helmet";
 
 // Define the path for .env.local file and inject env variables into code
 dotenv.config({
@@ -13,6 +14,7 @@ dotenv.config({
 const app = express();
 // Express middleware to parse incoming request
 app.use(express.json());
+app.use(helmet());
 // Initialise the port
 const PORT = process.env.PORT || 8000;
 

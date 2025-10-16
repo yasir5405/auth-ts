@@ -43,14 +43,14 @@ export const signupUser = async (req: Request, res: Response) => {
     if (existingUserByEmail) {
       return res.status(400).json({
         success: false,
-        message: "Email already taken.",
+        message: "Invalid credentials or account already exists.",
       });
     }
 
     if (existingUserByUsername) {
       return res.status(400).json({
         success: false,
-        message: "Username already taken.",
+        message: "Invalid credentials or account already exists..",
       });
     }
 
