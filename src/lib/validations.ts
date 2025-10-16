@@ -40,4 +40,17 @@ const signupSchema = z.object({
   type: z.enum(["admin", "user"]).default("user").optional(),
 });
 
-export { signupSchema };
+const loginSchema = z.object({
+  type: z.enum(["email", "username"]).default("email"),
+  username: z.string({ error: "Username is required." }),
+  email: z.email({
+    error: "Email is required. Please enter a valid email address.",
+  }),
+  password: z
+    .string()
+    .min(8, { error: "Password should be at least 8 characters." })
+    .max(100, { error: "Password cannot be more than 100 characters." })
+    .optional(),
+});
+
+export { signupSchema, loginSchema };

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { signupSchema } from "../lib/validations";
+import { loginSchema, signupSchema } from "../lib/validations";
 import bcrypt from "bcrypt";
 import { IUserDoc, UserModel } from "../models/user.model";
 import crypto from "crypto";
@@ -8,6 +8,7 @@ import {
   TokenVerificationModel,
 } from "../models/token-verification.model";
 import { sendEmail } from "../lib/email";
+import jsonwebtoken from "jsonwebtoken";
 
 export const signupUser = async (req: Request, res: Response) => {
   const parsedBody = signupSchema.safeParse(req.body);
@@ -103,6 +104,8 @@ export const signupUser = async (req: Request, res: Response) => {
       return res.status(500).json({
         success: false,
         message: "Internal server error.",
+        error:
+          error instanceof Error ? error.message : "Internal server error.",
       });
     }
   }
@@ -110,7 +113,6 @@ export const signupUser = async (req: Request, res: Response) => {
 
 export const verifyEmail = async (req: Request, res: Response) => {
   const { token } = req.query;
-
   if (!token) {
     return res.status(401).json({
       success: false,
@@ -156,8 +158,90 @@ export const verifyEmail = async (req: Request, res: Response) => {
       message: "Your email has been verified successfully.",
     });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error." });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error instanceof Error ? error.message : "Internal server error.",
+    });
+  }
+};
+
+export const loginUser = async (req: Request, res: Response) => {
+  const parsedBody = loginSchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid data format.",
+      error: parsedBody.error.issues.map((issue) => issue.message),
+    });
+  }
+
+  const { email, username, password, type } = parsedBody.data;
+
+  try {
+    const query = type === "email" ? { email } : { username };
+    const user: IUserDoc | null = await UserModel.findOne(query);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    if (!user.password) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "This account is not associated with credentials. Use your other login methods you used earlier.",
+      });
+    }
+
+    if (!user.isVerified) {
+      return res.status(401).json({
+        success: false,
+        message: "Please verify your email before logging in.",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password!, user.password);
+
+    if (!isMatch) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    const token = jsonwebtoken.sign(
+      {
+        id: user._id,
+      },
+      process.env.JWT_SECRET!
+    );
+
+    if (!token) {
+      return res.status(500).json({
+        success: false,
+        message: "Error in signing in. Please try again.",
+      });
+    }
+
+    const { password: _, ...safeUser } = user.toObject();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: safeUser,
+        token: token,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error instanceof Error ? error.message : "Internal server error.",
+    });
   }
 };
