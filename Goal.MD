@@ -1,10 +1,5 @@
 🔐 3. Security & Auth
 
-Goal: Deeply understand auth flows and secure APIs.
-Ideas:
-
-Advanced Auth Server
-
 Implement OAuth2 + refresh tokens manually.
 
 Support Google login, session revocation, and multi-factor auth (OTP/email).

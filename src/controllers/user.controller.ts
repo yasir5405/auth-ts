@@ -1,5 +1,9 @@
 import { Request, Response } from "express";
-import { loginSchema, signupSchema } from "../lib/validations";
+import {
+  loginSchema,
+  resendVerificationEmailSchema,
+  signupSchema,
+} from "../lib/validations";
 import bcrypt from "bcrypt";
 import { IUserDoc, UserModel } from "../models/user.model";
 import crypto from "crypto";
@@ -46,14 +50,14 @@ export const signupUser = async (req: Request, res: Response) => {
     const existingUserByUsername = await UserModel.findOne({ username });
 
     if (existingUserByEmail) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
         message: "Invalid credentials or account already exists.",
       });
     }
 
     if (existingUserByUsername) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
         message: "Invalid credentials or account already exists..",
       });
@@ -145,7 +149,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
     }
 
     if (user.isVerified) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
         message: "Your email is already verified.",
       });
@@ -195,7 +199,7 @@ export const loginUser = async (req: Request, res: Response) => {
     }
 
     if (!user.password) {
-      return res.status(401).json({
+      return res.status(400).json({
         success: false,
         message:
           "This account is not associated with credentials. Use your other login methods you used earlier.",
@@ -264,7 +268,7 @@ export const sendResetPasswordLink = async (req: Request, res: Response) => {
   const { email } = parsedBody.data;
 
   if (!email) {
-    return res.status(403).json({
+    return res.status(400).json({
       success: false,
       message: "Please provide an email to recieve password reset link.",
     });
@@ -274,7 +278,7 @@ export const sendResetPasswordLink = async (req: Request, res: Response) => {
     const user: IUserDoc | null = await UserModel.findOne({ email });
 
     if (!user) {
-      return res.status(403).json({
+      return res.status(404).json({
         success: false,
         message: "User not found with this email: " + email,
       });
@@ -282,6 +286,8 @@ export const sendResetPasswordLink = async (req: Request, res: Response) => {
 
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await passwordResetTokenModel.deleteMany({ userId: user._id });
 
     await passwordResetTokenModel.create({
       token,
@@ -308,7 +314,7 @@ export const resetPassword = async (req: Request, res: Response) => {
   const { token } = req.query;
 
   if (!token) {
-    return res.status(403).json({
+    return res.status(401).json({
       success: false,
       message: "Missing or Invalid token.",
     });
@@ -319,7 +325,7 @@ export const resetPassword = async (req: Request, res: Response) => {
   const parsedBody = partialSchema.safeParse(req.body);
 
   if (!parsedBody.success) {
-    return res.status(401).json({
+    return res.status(400).json({
       success: false,
       message: "Invalid data format.",
       error: parsedBody.error.issues.map((issue) => issue.message),
@@ -329,7 +335,7 @@ export const resetPassword = async (req: Request, res: Response) => {
   const { password } = parsedBody.data;
 
   if (!password || password.length === 0 || password === "") {
-    return res.status(403).json({
+    return res.status(400).json({
       success: false,
       message: "New Password is required to reset your current password.",
     });
@@ -340,7 +346,7 @@ export const resetPassword = async (req: Request, res: Response) => {
       await passwordResetTokenModel.findOne({ token });
 
     if (!storedToken) {
-      return res.status(403).json({
+      return res.status(401).json({
         success: false,
         message: "Invalid token. Unauthorized.",
       });
@@ -349,7 +355,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     const user: IUserDoc | null = await UserModel.findById(storedToken.userId);
 
     if (!user) {
-      return res.status(403).json({
+      return res.status(401).json({
         success: false,
         message: "Invalid token. Unauthorized.",
       });
@@ -388,6 +394,62 @@ export const resetPassword = async (req: Request, res: Response) => {
       success: false,
       message: "Internal server error",
       error: error instanceof Error ? error.message : "Internal server error.",
+    });
+  }
+};
+
+export const resendVerificationEmail = async (req: Request, res: Response) => {
+  const parsedBody = resendVerificationEmailSchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid input format.",
+      error: parsedBody.error.issues.map((issue) => issue.message),
+    });
+  }
+
+  const { email } = parsedBody.data;
+
+  try {
+    const user: IUserDoc | null = await UserModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this email address.",
+      });
+    }
+
+    if (user.isVerified) {
+      return res.status(409).json({
+        success: false,
+        message: "Your account is already verified.",
+      });
+    }
+
+    await TokenVerificationModel.deleteMany({ userId: user._id });
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await TokenVerificationModel.create({
+      token,
+      userId: user._id,
+      expiresAt,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "A new verification email has been sent to your inbox.",
+    });
+
+    await sendEmail(email, token);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Internal server error.",
     });
   }
 };

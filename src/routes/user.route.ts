@@ -2,12 +2,17 @@ import { Router } from "express";
 
 import {
   loginUser,
+  resendVerificationEmail,
   resetPassword,
   sendResetPasswordLink,
   signupUser,
   verifyEmail,
 } from "../controllers/user.controller";
-import { loginLimiter, signupLimiter } from "../middlewares/auth.middleware";
+import {
+  loginLimiter,
+  resendVerificationEmailLimiter,
+  signupLimiter,
+} from "../middlewares/auth.middleware";
 
 const userRouter = Router();
 
@@ -25,5 +30,12 @@ userRouter.post("/request-password-reset-link", sendResetPasswordLink);
 
 // @Route to verify token and update the password of the account
 userRouter.post("/reset-password", resetPassword);
+
+// @Route to request resend of a new verification email incase the old one expired or was missed by the user or due to some backend error wasn't sent to the user
+userRouter.post(
+  "/resend-verification-email",
+  resendVerificationEmailLimiter,
+  resendVerificationEmail
+);
 
 export { userRouter };

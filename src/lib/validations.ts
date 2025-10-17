@@ -53,4 +53,10 @@ const loginSchema = z.object({
     .optional(),
 });
 
-export { signupSchema, loginSchema };
+const resendVerificationEmailSchema = z.object({
+  email: z.email({
+    error: "Email is required. Please enter a valid email address.",
+  }),
+});
+
+export { signupSchema, loginSchema, resendVerificationEmailSchema };
