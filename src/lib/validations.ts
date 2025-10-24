@@ -42,10 +42,12 @@ const signupSchema = z.object({
 
 const loginSchema = z.object({
   type: z.enum(["email", "username"]).default("email"),
-  username: z.string({ error: "Username is required." }),
-  email: z.email({
-    error: "Email is required. Please enter a valid email address.",
-  }),
+  username: z.string({ error: "Username is required." }).optional(),
+  email: z
+    .email({
+      error: "Email is required. Please enter a valid email address.",
+    })
+    .optional(),
   password: z
     .string()
     .min(8, { error: "Password should be at least 8 characters." })

@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import {
+  fetchUser,
   loginUser,
   resendVerificationEmail,
   resetPassword,
@@ -12,6 +13,7 @@ import {
   loginLimiter,
   resendVerificationEmailLimiter,
   signupLimiter,
+  verifyJWT,
 } from "../middlewares/auth.middleware";
 
 const userRouter = Router();
@@ -37,5 +39,8 @@ userRouter.post(
   resendVerificationEmailLimiter,
   resendVerificationEmail
 );
+
+// @Route to authenticate user using JWTs
+userRouter.get("/me", verifyJWT, fetchUser);
 
 export { userRouter };

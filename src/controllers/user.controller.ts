@@ -12,12 +12,13 @@ import {
   TokenVerificationModel,
 } from "../models/token-verification.model";
 import { sendEmail, sendPasswordResetEmail } from "../lib/email";
-import jsonwebtoken from "jsonwebtoken";
+import jsonwebtoken, { JwtPayload } from "jsonwebtoken";
 import {
   IPasswordResetTokenDoc,
   passwordResetTokenModel,
 } from "../models/password-reset-token.model";
 
+//Controller to register user
 export const signupUser = async (req: Request, res: Response) => {
   const parsedBody = signupSchema.safeParse(req.body);
 
@@ -52,14 +53,14 @@ export const signupUser = async (req: Request, res: Response) => {
     if (existingUserByEmail) {
       return res.status(409).json({
         success: false,
-        message: "Invalid credentials or account already exists.",
+        message: "Account already exists with this email.",
       });
     }
 
     if (existingUserByUsername) {
       return res.status(409).json({
         success: false,
-        message: "Invalid credentials or account already exists..",
+        message: "Account already exists with this username.",
       });
     }
 
@@ -119,6 +120,7 @@ export const signupUser = async (req: Request, res: Response) => {
   }
 };
 
+//Controller to verify user's email
 export const verifyEmail = async (req: Request, res: Response) => {
   const { token } = req.query;
   if (!token) {
@@ -174,6 +176,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
   }
 };
 
+//Controller to login user
 export const loginUser = async (req: Request, res: Response) => {
   const parsedBody = loginSchema.safeParse(req.body);
 
@@ -192,7 +195,7 @@ export const loginUser = async (req: Request, res: Response) => {
     const user: IUserDoc | null = await UserModel.findOne(query);
 
     if (!user) {
-      return res.status(404).json({
+      return res.status(401).json({
         success: false,
         message: "Invalid credentials",
       });
@@ -254,6 +257,7 @@ export const loginUser = async (req: Request, res: Response) => {
   }
 };
 
+//Controller to send password reset link
 export const sendResetPasswordLink = async (req: Request, res: Response) => {
   const parsedBody = signupSchema.partial().safeParse(req.body);
 
@@ -310,6 +314,7 @@ export const sendResetPasswordLink = async (req: Request, res: Response) => {
   }
 };
 
+//Controller to reset password
 export const resetPassword = async (req: Request, res: Response) => {
   const { token } = req.query;
 
@@ -398,6 +403,7 @@ export const resetPassword = async (req: Request, res: Response) => {
   }
 };
 
+//Controller to resend verification email
 export const resendVerificationEmail = async (req: Request, res: Response) => {
   const parsedBody = resendVerificationEmailSchema.safeParse(req.body);
 
@@ -445,6 +451,30 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
     });
 
     await sendEmail(email, token);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Internal server error.",
+    });
+  }
+};
+
+//Controller to authenticate user using JWTs
+export const fetchUser = async (req: Request, res: Response) => {
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or missing token.",
+    });
+  }
+  try {
+    res.status(200).json({
+      success: true,
+      message: "User details fetched successfully",
+      user: user,
+    });
   } catch (error) {
     res.status(500).json({
       success: false,

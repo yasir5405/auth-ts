@@ -4,6 +4,7 @@ import express from "express";
 import { userRouter } from "./routes/user.route";
 import { connectDB } from "./lib/mongoose";
 import helmet from "helmet";
+import cors from "cors";
 
 // Define the path for .env.local file and inject env variables into code
 dotenv.config({
@@ -15,6 +16,7 @@ const app = express();
 // Express middleware to parse incoming request
 app.use(express.json());
 app.use(helmet());
+app.use(cors());
 // Initialise the port
 const PORT = process.env.PORT || 8000;
 
